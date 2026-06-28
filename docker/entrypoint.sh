@@ -62,14 +62,19 @@ EOSQL
     {
       echo "SET NAMES utf8mb4;"
       echo "SET FOREIGN_KEY_CHECKS=0;"
-      sed $'1s/^\xEF\xBB\xBF//;/^CREATE DATABASE/d;/^USE `/d' /var/www/html/deploy/ojs_local.sql
+      sed $'1s/^\xEF\xBB\xBF//;/^CREATE DATABASE/d;/^USE `/d;/@OLD_TIME_ZONE/d;/@OLD_INNODB_STATS_AUTO_RECALC/d;/@OLD_SQL_MODE/d;/@OLD_FOREIGN_KEY_CHECKS/d;/@OLD_UNIQUE_CHECKS/d;/@OLD_CHARACTER_SET_CLIENT/d;/@OLD_CHARACTER_SET_RESULTS/d;/@OLD_COLLATION_CONNECTION/d;/@OLD_SQL_NOTES/d' /var/www/html/deploy/ojs_local.sql
       echo "SET FOREIGN_KEY_CHECKS=1;"
     } | mysql --socket=/var/run/mysqld/mysqld.sock -uroot "${DB_NAME}"
     #region agent log
-    IMPORTED_TABLES=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
-    echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H1\",\"location\":\"entrypoint.sh:setup_database\",\"message\":\"import_complete\",\"data\":{\"table_count\":${IMPORTED_TABLES}},\"timestamp\":$(($(date +%s)*1000))}"
+    IMPORTED_TABLES=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null || echo 0)
+    JOURNAL_ROWS=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e "SELECT COUNT(*) FROM ${DB_NAME}.journals;" 2>/dev/null || echo 0)
+    echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H5\",\"location\":\"entrypoint.sh:setup_database\",\"message\":\"import_complete\",\"data\":{\"table_count\":${IMPORTED_TABLES},\"journal_rows\":${JOURNAL_ROWS}},\"timestamp\":$(($(date +%s)*1000))}"
     #endregion
-    echo "Database import complete (${IMPORTED_TABLES} tables)."
+    if [ "${IMPORTED_TABLES}" -lt 50 ] || [ "${JOURNAL_ROWS}" -lt 1 ]; then
+      echo "Database import verification failed: tables=${IMPORTED_TABLES}, journals=${JOURNAL_ROWS}"
+      return 1
+    fi
+    echo "Database import complete (${IMPORTED_TABLES} tables, ${JOURNAL_ROWS} journals)."
   else
     TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e \
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
