@@ -33,17 +33,28 @@ if ($checks['config_exists']) {
     }
 }
 
+// #region agent log
+$httpsEnv = $_SERVER['HTTPS'] ?? '';
+$xForwardedProto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '';
+$detectedProtocol = (!isset($_SERVER['HTTPS']) || strtolower((string) $_SERVER['HTTPS']) !== 'on') ? 'http' : 'https';
+$checks['https_env'] = $httpsEnv === '' ? null : $httpsEnv;
+$checks['x_forwarded_proto'] = $xForwardedProto === '' ? null : $xForwardedProto;
+$checks['detected_protocol'] = $detectedProtocol;
+$checks['https_detection_ok'] = $detectedProtocol === 'https' || strtolower((string) $xForwardedProto) !== 'https';
+// #endregion
+
 $ok = $checks['cache_manager_file']
     && $checks['cache_manager_class']
     && $checks['laravel_cache_provider']
     && $checks['files_dir_writable']
     && $checks['cache_dir_writable']
+    && $checks['https_detection_ok']
     && ($checks['config_exists'] ? ($checks['db_connect'] ?? false) : false);
 
 // #region agent log
 error_log(json_encode([
     'sessionId' => 'd19d71',
-    'hypothesisId' => 'H10',
+    'hypothesisId' => 'H13',
     'location' => 'health.php',
     'message' => 'render_health_check',
     'data' => $checks,
