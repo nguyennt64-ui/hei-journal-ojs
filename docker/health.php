@@ -12,6 +12,7 @@ $checks = [
 
 require_once $root . '/lib/pkp/lib/vendor/autoload.php';
 $checks['cache_manager_class'] = class_exists('PKP\\cache\\CacheManager');
+$checks['laravel_cache_provider'] = class_exists('Illuminate\\Cache\\CacheServiceProvider');
 
 $configPath = $root . '/config.inc.php';
 $checks['config_exists'] = is_file($configPath);
@@ -34,6 +35,7 @@ if ($checks['config_exists']) {
 
 $ok = $checks['cache_manager_file']
     && $checks['cache_manager_class']
+    && $checks['laravel_cache_provider']
     && $checks['files_dir_writable']
     && $checks['cache_dir_writable']
     && ($checks['config_exists'] ? ($checks['db_connect'] ?? false) : false);

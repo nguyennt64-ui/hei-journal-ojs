@@ -206,10 +206,10 @@ write_config
 #region agent log
 CACHE_MGR="/var/www/html/lib/pkp/classes/cache/CacheManager.php"
 CACHE_MGR_EXISTS=$([ -f "$CACHE_MGR" ] && echo true || echo false)
-AUTOLOAD_OK=$(php -r 'require "/var/www/html/lib/pkp/lib/vendor/autoload.php"; echo class_exists("PKP\\cache\\CacheManager") ? "true" : "false";')
-echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H7\",\"location\":\"entrypoint.sh:pre_apache\",\"message\":\"pkp_cache_manager_file_check\",\"data\":{\"path\":\"${CACHE_MGR}\",\"exists\":${CACHE_MGR_EXISTS},\"autoload\":${AUTOLOAD_OK}},\"timestamp\":$(($(date +%s)*1000))}"
+AUTOLOAD_OK=$(php -r 'require "/var/www/html/lib/pkp/lib/vendor/autoload.php"; echo (class_exists("PKP\\cache\\CacheManager") && class_exists("Illuminate\\Cache\\CacheServiceProvider")) ? "true" : "false";')
+echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H12\",\"location\":\"entrypoint.sh:pre_apache\",\"message\":\"vendor_autoload_check\",\"data\":{\"path\":\"${CACHE_MGR}\",\"exists\":${CACHE_MGR_EXISTS},\"autoload\":${AUTOLOAD_OK}},\"timestamp\":$(($(date +%s)*1000))}"
 if [ "$CACHE_MGR_EXISTS" != "true" ] || [ "$AUTOLOAD_OK" != "true" ]; then
-  echo "FATAL: PKP CacheManager missing or not autoloadable"
+  echo "FATAL: Required cache classes missing (PKP CacheManager or Laravel CacheServiceProvider)"
   exit 1
 fi
 #endregion
