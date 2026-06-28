@@ -47,24 +47,34 @@ start_database() {
 setup_database() {
   mysql --socket=/var/run/mysqld/mysqld.sock -uroot <<-EOSQL
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+EOSQL
+
+  JOURNAL_EXISTS=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name='journals';")
+
+  if [ "${JOURNAL_EXISTS}" -eq 0 ]; then
+    echo "Importing database schema and data..."
+    mysql --socket=/var/run/mysqld/mysqld.sock -uroot -e "DROP DATABASE IF EXISTS ${DB_NAME}; CREATE DATABASE ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    {
+      echo "SET NAMES utf8mb4;"
+      echo "SET FOREIGN_KEY_CHECKS=0;"
+      sed '/^CREATE DATABASE/d;/^USE `/d' /var/www/html/deploy/ojs_local.sql
+      echo "SET FOREIGN_KEY_CHECKS=1;"
+    } | mysql --socket=/var/run/mysqld/mysqld.sock -uroot "${DB_NAME}"
+    echo "Database import complete."
+  else
+    TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e \
+      "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
+    echo "Database already initialized (${TABLE_COUNT} tables)."
+  fi
+
+  mysql --socket=/var/run/mysqld/mysqld.sock -uroot <<-EOSQL
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';
 FLUSH PRIVILEGES;
 EOSQL
-
-  TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e \
-    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
-
-  if [ "${TABLE_COUNT}" -eq 0 ]; then
-    echo "Importing database schema and data..."
-    sed '/^CREATE DATABASE/d;/^USE `/d' /var/www/html/deploy/ojs_local.sql \
-      | mysql --socket=/var/run/mysqld/mysqld.sock -uroot "${DB_NAME}"
-    echo "Database import complete."
-  else
-    echo "Database already initialized (${TABLE_COUNT} tables)."
-  fi
 }
 
 write_config() {
