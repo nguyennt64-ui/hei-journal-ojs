@@ -14,6 +14,6 @@ services:
       - key: DB_NAME
         value: ojs_local
       - key: BASE_URL
-        value: https://hei-journal-ojs-dq86.onrender.com
+        value: https://hei-journal-ojs-3wso.onrender.com
       - key: FILES_DIR
         value: /var/www/files
