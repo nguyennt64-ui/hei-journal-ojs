@@ -54,14 +54,22 @@ EOSQL
 
   if [ "${JOURNAL_EXISTS}" -eq 0 ]; then
     echo "Importing database schema and data..."
+    #region agent log
+    SQL_HEAD=$(head -c 3 /var/www/html/deploy/ojs_local.sql | od -An -tx1 | tr -d ' \n')
+    echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H1\",\"location\":\"entrypoint.sh:setup_database\",\"message\":\"sql_file_head_bytes\",\"data\":{\"hex\":\"${SQL_HEAD}\"},\"timestamp\":$(($(date +%s)*1000))}"
+    #endregion
     mysql --socket=/var/run/mysqld/mysqld.sock -uroot -e "DROP DATABASE IF EXISTS ${DB_NAME}; CREATE DATABASE ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
     {
       echo "SET NAMES utf8mb4;"
       echo "SET FOREIGN_KEY_CHECKS=0;"
-      sed '/^CREATE DATABASE/d;/^USE `/d' /var/www/html/deploy/ojs_local.sql
+      sed $'1s/^\xEF\xBB\xBF//;/^CREATE DATABASE/d;/^USE `/d' /var/www/html/deploy/ojs_local.sql
       echo "SET FOREIGN_KEY_CHECKS=1;"
     } | mysql --socket=/var/run/mysqld/mysqld.sock -uroot "${DB_NAME}"
-    echo "Database import complete."
+    #region agent log
+    IMPORTED_TABLES=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
+    echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H1\",\"location\":\"entrypoint.sh:setup_database\",\"message\":\"import_complete\",\"data\":{\"table_count\":${IMPORTED_TABLES}},\"timestamp\":$(($(date +%s)*1000))}"
+    #endregion
+    echo "Database import complete (${IMPORTED_TABLES} tables)."
   else
     TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e \
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")

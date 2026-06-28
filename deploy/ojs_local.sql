@@ -1,4 +1,4 @@
-﻿-- Current Database: `ojs_local`
+-- Current Database: `ojs_local`
 --
 
 CREATE DATABASE /*!32312 IF NOT EXISTS*/ `ojs_local` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
