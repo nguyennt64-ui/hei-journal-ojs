@@ -1,0 +1,22 @@
+# Secrets & local config
+config.inc.php
+
+# Runtime cache & logs
+cache/
+*.log
+
+# Uploaded/public journal files (restore from backup separately)
+public/journals/
+public/site/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local env overrides
+.env
+.env.*
