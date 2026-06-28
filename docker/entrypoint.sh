@@ -1,22 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_HOST="${DB_HOST:-db}"
+DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_USER="${DB_USER:-ojs}"
 DB_PASSWORD="${DB_PASSWORD:-ojs}"
 DB_NAME="${DB_NAME:-ojs_local}"
 BASE_URL="${BASE_URL:-http://localhost}"
 FILES_DIR="${FILES_DIR:-/var/www/files}"
 
-until mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" --silent; do
+echo "Starting MariaDB..."
+if [ ! -d "/var/lib/mysql/mysql" ]; then
+  mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
+fi
+
+mysqld_safe --datadir=/var/lib/mysql --socket=/var/run/mysqld/mysqld.sock &
+sleep 5
+
+until mysqladmin ping --socket=/var/run/mysqld/mysqld.sock --silent; do
   echo "Waiting for database..."
   sleep 2
 done
 
-if ! mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" -e "USE $DB_NAME" >/dev/null 2>&1; then
+mysql --socket=/var/run/mysqld/mysqld.sock -uroot <<-EOSQL
+CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';
+FLUSH PRIVILEGES;
+EOSQL
+
+TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -u"$DB_USER" -p"$DB_PASSWORD" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null || echo 0)
+if [ "${TABLE_COUNT}" -eq 0 ]; then
   echo "Importing database..."
-  mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-  mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /var/www/html/deploy/ojs_local.sql
+  mysql --socket=/var/run/mysqld/mysqld.sock -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /var/www/html/deploy/ojs_local.sql
 fi
 
 cat > /var/www/html/config.inc.php <<EOF

@@ -6,40 +6,14 @@ services:
     healthCheckPath: /index.php/heijournal
     envVars:
       - key: DB_HOST
-        fromService:
-          type: pserv
-          name: hei-journal-db
-          property: host
+        value: 127.0.0.1
       - key: DB_USER
         value: ojs
       - key: DB_PASSWORD
-        fromService:
-          type: pserv
-          name: hei-journal-db
-          envVarKey: MYSQL_PASSWORD
+        value: ojs
       - key: DB_NAME
         value: ojs_local
       - key: BASE_URL
         sync: false
       - key: FILES_DIR
         value: /var/www/files
-
-  - type: pserv
-    name: hei-journal-db
-    runtime: docker
-    plan: free
-    repo: https://github.com/render-examples/mysql
-    branch: mysql-8
-    envVars:
-      - key: MYSQL_DATABASE
-        value: ojs_local
-      - key: MYSQL_USER
-        value: ojs
-      - key: MYSQL_PASSWORD
-        generateValue: true
-      - key: MYSQL_ROOT_PASSWORD
-        generateValue: true
-    disk:
-      name: mysql-data
-      mountPath: /var/lib/mysql
-      sizeGB: 1
