@@ -1,0 +1,23 @@
+# Deploy OJS to Render from GitHub
+# Docs: https://render.com/docs/deploy-php-laravel-docker
+
+name: Deploy to Render
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: No deploy hook configured
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL == '' }}
+        run: |
+          echo "Chưa có RENDER_DEPLOY_HOOK_URL."
+          echo "Tạo Web Service trên Render từ repo GitHub, rồi thêm secret RENDER_DEPLOY_HOOK_URL."

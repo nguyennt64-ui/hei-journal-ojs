@@ -1,0 +1,5 @@
+cache/
+config.inc.php
+.git
+.github
+*.log
