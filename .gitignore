@@ -1,8 +1,8 @@
 # Secrets & local config
 config.inc.php
 
-# Runtime cache & logs
-cache/
+# Runtime cache & logs (root only — do not ignore lib/pkp/classes/cache/)
+/cache/
 *.log
 
 # Uploaded/public journal files (restore from backup separately)

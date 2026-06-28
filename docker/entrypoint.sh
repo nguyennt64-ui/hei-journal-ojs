@@ -207,8 +207,8 @@ CACHE_MGR="/var/www/html/lib/pkp/classes/cache/CacheManager.php"
 CACHE_MGR_EXISTS=$([ -f "$CACHE_MGR" ] && echo true || echo false)
 echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H7\",\"location\":\"entrypoint.sh:pre_apache\",\"message\":\"pkp_cache_manager_file_check\",\"data\":{\"path\":\"${CACHE_MGR}\",\"exists\":${CACHE_MGR_EXISTS}},\"timestamp\":$(($(date +%s)*1000))}"
 if [ "$CACHE_MGR_EXISTS" != "true" ]; then
-  echo "FATAL: PKP CacheManager.php missing — check .dockerignore cache/ pattern"
-  return 1
+  echo "FATAL: PKP CacheManager.php missing — check .gitignore /cache/ pattern"
+  exit 1
 fi
 #endregion
 
