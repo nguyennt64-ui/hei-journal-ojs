@@ -194,7 +194,8 @@ delete_failed_jobs_after = 180
 EOF
 
   chown www-data:www-data /var/www/html/config.inc.php
-  chown -R www-data:www-data /var/www/files /var/www/html/cache
+  mkdir -p /var/www/html/cache /var/www/html/public/journals/1 /var/www/html/public/site
+  chown -R www-data:www-data /var/www/files /var/www/html/cache /var/www/html/public/journals /var/www/html/public/site
 }
 
 configure_apache_port
@@ -205,9 +206,10 @@ write_config
 #region agent log
 CACHE_MGR="/var/www/html/lib/pkp/classes/cache/CacheManager.php"
 CACHE_MGR_EXISTS=$([ -f "$CACHE_MGR" ] && echo true || echo false)
-echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H7\",\"location\":\"entrypoint.sh:pre_apache\",\"message\":\"pkp_cache_manager_file_check\",\"data\":{\"path\":\"${CACHE_MGR}\",\"exists\":${CACHE_MGR_EXISTS}},\"timestamp\":$(($(date +%s)*1000))}"
-if [ "$CACHE_MGR_EXISTS" != "true" ]; then
-  echo "FATAL: PKP CacheManager.php missing — check .gitignore /cache/ pattern"
+AUTOLOAD_OK=$(php -r 'require "/var/www/html/lib/pkp/lib/vendor/autoload.php"; echo class_exists("PKP\\cache\\CacheManager") ? "true" : "false";')
+echo "{\"sessionId\":\"d19d71\",\"hypothesisId\":\"H7\",\"location\":\"entrypoint.sh:pre_apache\",\"message\":\"pkp_cache_manager_file_check\",\"data\":{\"path\":\"${CACHE_MGR}\",\"exists\":${CACHE_MGR_EXISTS},\"autoload\":${AUTOLOAD_OK}},\"timestamp\":$(($(date +%s)*1000))}"
+if [ "$CACHE_MGR_EXISTS" != "true" ] || [ "$AUTOLOAD_OK" != "true" ]; then
+  echo "FATAL: PKP CacheManager missing or not autoloadable"
   exit 1
 fi
 #endregion

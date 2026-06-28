@@ -3,7 +3,7 @@ services:
     name: hei-journal-ojs
     runtime: docker
     plan: free
-    healthCheckPath: /index.php/heijournal
+    healthCheckPath: /health.php
     envVars:
       - key: DB_HOST
         value: 127.0.0.1

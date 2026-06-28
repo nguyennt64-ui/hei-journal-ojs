@@ -10,8 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www/html
 
 COPY . /var/www/html/
+COPY lib/pkp/classes/cache/ /var/www/html/lib/pkp/classes/cache/
+COPY docker/health.php /var/www/html/health.php
+COPY docker/php-errors.ini /usr/local/etc/php/conf.d/99-ojs-errors.ini
 
-RUN mkdir -p /var/www/files cache /var/run/mysqld /var/log/mysql \
+RUN mkdir -p /var/www/files cache public/journals/1 public/site /var/run/mysqld /var/log/mysql \
     && chown -R www-data:www-data /var/www/html /var/www/files \
     && chown -R mysql:mysql /var/run/mysqld /var/lib/mysql /var/log/mysql
 
