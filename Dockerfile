@@ -11,10 +11,11 @@ WORKDIR /var/www/html
 
 COPY . /var/www/html/
 
-RUN mkdir -p /var/www/files cache /var/run/mysqld \
+RUN mkdir -p /var/www/files cache /var/run/mysqld /var/log/mysql \
     && chown -R www-data:www-data /var/www/html /var/www/files \
-    && chown -R mysql:mysql /var/run/mysqld /var/lib/mysql
+    && chown -R mysql:mysql /var/run/mysqld /var/lib/mysql /var/log/mysql
 
+COPY docker/my.cnf /etc/mysql/my.cnf
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

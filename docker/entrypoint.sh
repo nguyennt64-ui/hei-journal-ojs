@@ -7,21 +7,45 @@ DB_PASSWORD="${DB_PASSWORD:-ojs}"
 DB_NAME="${DB_NAME:-ojs_local}"
 BASE_URL="${BASE_URL:-http://localhost}"
 FILES_DIR="${FILES_DIR:-/var/www/files}"
+PORT="${PORT:-80}"
 
-echo "Starting MariaDB..."
-if [ ! -d "/var/lib/mysql/mysql" ]; then
-  mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
-fi
+echo "=== OJS container startup ==="
+echo "PORT=${PORT}, BASE_URL=${BASE_URL}"
 
-mysqld_safe --datadir=/var/lib/mysql --socket=/var/run/mysqld/mysqld.sock &
-sleep 5
+configure_apache_port() {
+  sed -i "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
+  sed -i "s/<VirtualHost \*:80>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
+}
 
-until mysqladmin ping --socket=/var/run/mysqld/mysqld.sock --silent; do
-  echo "Waiting for database..."
-  sleep 2
-done
+start_database() {
+  echo "Starting MariaDB..."
+  mkdir -p /var/run/mysqld /var/lib/mysql
+  chown -R mysql:mysql /var/run/mysqld /var/lib/mysql
 
-mysql --socket=/var/run/mysqld/mysqld.sock -uroot <<-EOSQL
+  if [ ! -f /var/lib/mysql/ibdata1 ]; then
+    echo "Initializing MariaDB data directory..."
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql --skip-test-db >/dev/null
+  fi
+
+  mysqld_safe --defaults-file=/etc/mysql/my.cnf >/var/log/mysql/startup.log 2>&1 &
+  sleep 8
+
+  for i in $(seq 1 30); do
+    if mysqladmin ping --socket=/var/run/mysqld/mysqld.sock --silent; then
+      echo "MariaDB is ready."
+      return 0
+    fi
+    echo "Waiting for database... (${i}/30)"
+    sleep 2
+  done
+
+  echo "MariaDB failed to start. Log:"
+  tail -n 50 /var/log/mysql/startup.log || true
+  return 1
+}
+
+setup_database() {
+  mysql --socket=/var/run/mysqld/mysqld.sock -uroot <<-EOSQL
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
@@ -30,18 +54,26 @@ GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';
 FLUSH PRIVILEGES;
 EOSQL
 
-TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -u"$DB_USER" -p"$DB_PASSWORD" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null || echo 0)
-if [ "${TABLE_COUNT}" -eq 0 ]; then
-  echo "Importing database..."
-  mysql --socket=/var/run/mysqld/mysqld.sock -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /var/www/html/deploy/ojs_local.sql
-fi
+  TABLE_COUNT=$(mysql --socket=/var/run/mysqld/mysqld.sock -uroot -N -e \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
 
-cat > /var/www/html/config.inc.php <<EOF
+  if [ "${TABLE_COUNT}" -eq 0 ]; then
+    echo "Importing database schema and data..."
+    sed '/^CREATE DATABASE/d;/^USE `/d' /var/www/html/deploy/ojs_local.sql \
+      | mysql --socket=/var/run/mysqld/mysqld.sock -uroot "${DB_NAME}"
+    echo "Database import complete."
+  else
+    echo "Database already initialized (${TABLE_COUNT} tables)."
+  fi
+}
+
+write_config() {
+  cat > /var/www/html/config.inc.php <<EOF
 ; <?php exit; // DO NOT DELETE?>
 
 [general]
 installed = On
-base_url = "$BASE_URL"
+base_url = "${BASE_URL}"
 strict = Off
 session_cookie_name = OJSSID
 session_lifetime = 30
@@ -66,10 +98,10 @@ sandbox = Off
 
 [database]
 driver = mysqli
-host = $DB_HOST
-username = $DB_USER
-password = "$DB_PASSWORD"
-name = $DB_NAME
+host = ${DB_HOST}
+username = ${DB_USER}
+password = "${DB_PASSWORD}"
+name = ${DB_NAME}
 debug = Off
 
 [cache]
@@ -81,7 +113,7 @@ locale = en
 connection_charset = utf8
 
 [files]
-files_dir = "$FILES_DIR"
+files_dir = "${FILES_DIR}"
 public_files_dir = public
 public_user_dir_size = 5000
 umask = 0022
@@ -138,7 +170,14 @@ job_runner_max_memory = 80
 delete_failed_jobs_after = 180
 EOF
 
-chown www-data:www-data /var/www/html/config.inc.php
-chown -R www-data:www-data /var/www/files /var/www/html/cache
+  chown www-data:www-data /var/www/html/config.inc.php
+  chown -R www-data:www-data /var/www/files /var/www/html/cache
+}
 
+configure_apache_port
+start_database
+setup_database
+write_config
+
+echo "Starting Apache on port ${PORT}..."
 exec "$@"
